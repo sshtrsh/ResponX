@@ -1,8 +1,10 @@
-# Crime Mapping System
+# ResponX
 
-A complete municipal incident reporting and command center system. This repository contains both a React Native mobile application for residents and a web-based dispatch/admin dashboard.
+Responx: A real-time crime mapping platform. Includes a React Native (Expo) mobile application for citizen reporting and a React/Vite web admin dashboard for monitoring incidents, broadcasts, and map data.
 
 ## Overview
+
+A complete municipal incident reporting and command center system. This repository contains both a React Native mobile application for residents and a web-based dispatch/admin dashboard.
 
 The Crime Mapping System allows residents to report incidents (fires, accidents, crimes) from their phones, complete with photos and precise location data. Barangay admins and city police can view, triage, and manage these reports in real-time through a centralized web dashboard, featuring live maps, clustered incident data, and automated Standard Operating Procedures (SOPs).
 
@@ -110,3 +112,4 @@ npm run build
 ```
 
 To build the Mobile App for production, refer to the [Expo EAS Build Documentation](https://docs.expo.dev/build/introduction/).
+
