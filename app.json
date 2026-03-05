@@ -1,4 +1,95 @@
 {
-  "name": "crimemappingtest",
-  "displayName": "crimemappingtest"
+  "expo": {
+    "name": "ResponX",
+    "slug": "responx",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "responx",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff",
+          "dark": {
+            "backgroundColor": "#000000"
+          }
+        }
+      ],
+      "expo-web-browser",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow ResponX to use your location to auto-fill the incident location in crime reports."
+        }
+      ],
+      "@react-native-community/datetimepicker"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "responx"
+            ]
+          }
+        ],
+        "NSLocationWhenInUseUsageDescription": "ResponX needs access to your location to automatically fill the incident location when reporting crimes.",
+        "NSLocationAlwaysUsageDescription": "ResponX needs access to your location to automatically fill the incident location when reporting crimes."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "scheme": "responx"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ],
+      "package": "com.responx.app",
+      "usesCleartextTraffic": true,
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ]
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png",
+      "bundler": "metro"
+    },
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "supabaseUrl": "https://gbdrmayvqeumduzscgcn.supabase.co",
+      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdiZHJtYXl2cWV1bWR1enNjZ2NuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgxMjQ3MDYsImV4cCI6MjA4MzcwMDcwNn0.3DSYMBmwZ57OOah4zE8FurGdWwPRMUaVYlwUjcXP__w",
+      "eas": {
+        "projectId": "gbdrmayvqeumduzscgcn"
+      }
+    }
+  }
 }

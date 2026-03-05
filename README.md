@@ -1,97 +1,112 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# Crime Mapping System
 
-# Getting Started
+A complete municipal incident reporting and command center system. This repository contains both a React Native mobile application for residents and a web-based dispatch/admin dashboard.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+## Overview
 
-## Step 1: Start Metro
+The Crime Mapping System allows residents to report incidents (fires, accidents, crimes) from their phones, complete with photos and precise location data. Barangay admins and city police can view, triage, and manage these reports in real-time through a centralized web dashboard, featuring live maps, clustered incident data, and automated Standard Operating Procedures (SOPs).
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+## Architecture
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+This project is a monorepo containing two applications:
 
-```sh
-# Using npm
+1.  **Mobile App (`/app`)**: Built with React Native & Expo. Designed for residents to submit reports, receive broadcast announcements, and track their case history.
+2.  **Admin Web (`/admin-web`)**: Built with React, Vite, and Tailwind CSS. Designed for dispatchers and administrators to manage incidents and view analytics.
+
+Both applications share a common backend powered by **Supabase** for Authentication, PostgreSQL Database, and Storage (for evidence photos).
+
+---
+
+## Prerequisites
+
+Before starting, ensure you have the following installed:
+
+*   [Node.js](https://nodejs.org/) (v18 or newer recommended)
+*   [npm](https://www.npmjs.com/) (comes with Node.js)
+*   A [Supabase](https://supabase.com/) project (Free tier is sufficient for development)
+
+---
+
+## 🚀 Getting Started
+
+### 1. Database Setup (Supabase)
+
+1.  Create a new project in your Supabase dashboard.
+2.  Navigate to the **SQL Editor** in Supabase.
+3.  Execute the provided database setup scripts in order:
+    *   First, run the schema setup: `database_fix.sql`
+    *   Then, apply security rules: `supabase_rls_policies.sql`
+
+### 2. Environment Variables
+
+You need to connect both the mobile app and the web dashboard to your Supabase instance.
+
+**For the Mobile App (Root Directory):**
+Create a `.env` file in the root directory:
+```env
+EXPO_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+```
+
+**For the Admin Web (`/admin-web`):**
+Create a `.env` file inside the `admin-web/` directory:
+```env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+```
+
+### 3. Running the Mobile App
+
+From the root directory of the project:
+
+```bash
+# Install dependencies
+npm install
+
+# Start the Expo development server
 npm start
+```
+*Use the Expo Go app on your phone, or an Android/iOS emulator to preview the app.*
 
-# OR using Yarn
-yarn start
+### 4. Running the Admin Dashboard
+
+Open a new terminal window and navigate to the admin directory:
+
+```bash
+# Move to the admin-web directory
+cd admin-web
+
+# Install dependencies
+npm install
+
+# Start the Vite development server
+npm run dev
+```
+*The dashboard will typically be available at `http://localhost:5173`.*
+
+---
+
+## Default Roles & Testing
+
+When first setting up the system, you will need an admin account to access the dashboard.
+To create a Super Admin:
+1. Register a new account via the mobile app.
+2. Go to your Supabase dashboard > Table Editor > `profiles`.
+3. Change the `role` for your user from `resident` to `super_admin`.
+4. You can now log into the web dashboard at `http://localhost:5173`.
+
+Available Roles:
+*   `super_admin`: Full system access, user management.
+*   `police_admin`: City-wide view of all incidents.
+*   `barangay_admin`: Restricted to incidents within their specific barangay.
+*   `resident`: Mobile app users only.
+
+## Production Build
+
+To build the Admin Dashboard for production:
+```bash
+cd admin-web
+npm run build
 ```
 
-## Step 2: Build and run your app
-
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
-
-### Android
-
-```sh
-# Using npm
-npm run android
-
-# OR using Yarn
-yarn android
-```
-
-### iOS
-
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
-
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
-
-```sh
-bundle install
-```
-
-Then, and every time you update your native dependencies, run:
-
-```sh
-bundle exec pod install
-```
-
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
-
-```sh
-# Using npm
-npm run ios
-
-# OR using Yarn
-yarn ios
-```
-
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
-
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
-
-## Step 3: Modify your app
-
-Now that you have successfully run the app, let's make changes!
-
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
-
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
-
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
-
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+To build the Mobile App for production, refer to the [Expo EAS Build Documentation](https://docs.expo.dev/build/introduction/).
