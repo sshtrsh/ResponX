@@ -1,5 +1,5 @@
 import { Session } from "@supabase/supabase-js";
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 
 type AuthContextType = {
@@ -19,34 +19,57 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
+    let initialSessionCheck: Promise<void> | null = null;
+
     // Check for active session on load
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    }).catch(async (error) => {
-      // Handle invalid/expired refresh token by clearing the corrupted session
-      console.warn('Session recovery failed, signing out:', error.message);
-      await supabase.auth.signOut();
-      setSession(null);
-      setLoading(false);
-    });
+    initialSessionCheck = supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        if (isMounted) {
+          setSession(session);
+          setLoading(false);
+        }
+      })
+      .catch(async (error) => {
+        // Handle invalid/expired refresh token by clearing the corrupted session
+        console.warn('Session recovery failed, signing out:', error.message);
+        if (isMounted) {
+          await supabase.auth.signOut();
+          setSession(null);
+          setLoading(false);
+        }
+      });
 
     // Listen for changes (login/logout)
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'TOKEN_REFRESHED' && !session) {
+    } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+      // Cancel initial session check if subscription fires first to prevent race condition
+      if (initialSessionCheck && event === 'SIGNED_IN' && newSession) {
+        initialSessionCheck = null;
+      }
+
+      if (event === 'TOKEN_REFRESHED' && !newSession) {
         // Token refresh failed — clear the invalid session
         console.warn('Token refresh failed, signing out.');
-        await supabase.auth.signOut();
-        setSession(null);
-      } else {
-        setSession(session);
+        if (isMounted) {
+          await supabase.auth.signOut();
+          setSession(null);
+        }
+      } else if (isMounted) {
+        setSession(newSession);
       }
-      setLoading(false);
+      
+      if (isMounted && loading) {
+        setLoading(false);
+      }
     });
 
-    return () => subscription.unsubscribe();
+    // Cleanup function
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   return (

@@ -1,15 +1,42 @@
-// app/lib/supabase.ts
+// lib/supabase.ts - Enterprise-grade Supabase client with validation
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import 'react-native-url-polyfill/auto';
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
+// Environment variable validation
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
+// Validate environment variables at module load time
+if (!supabaseUrl) {
   throw new Error(
-    "Missing Supabase environment variables. " +
-    "Create .env at the project root with EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY."
+    "Missing EXPO_PUBLIC_SUPABASE_URL environment variable. " +
+    "Create .env at the project root with your Supabase URL."
+  );
+}
+
+if (!supabaseAnonKey) {
+  throw new Error(
+    "Missing EXPO_PUBLIC_SUPABASE_ANON_KEY environment variable. " +
+    "Create .env at the project root with your Supabase anonymous key."
+  );
+}
+
+// Validate URL format
+try {
+  new URL(supabaseUrl);
+} catch {
+  throw new Error(
+    `Invalid Supabase URL format: "${supabaseUrl}". ` +
+    "URL must be a valid HTTP/HTTPS address (e.g., https://your-project.supabase.co)"
+  );
+}
+
+// Validate key format (Supabase keys are typically 60+ characters)
+if (supabaseAnonKey.length < 20) {
+  throw new Error(
+    `Invalid Supabase anonymous key format. Key appears too short (${supabaseAnonKey.length} chars). ` +
+    "Please check your .env file."
   );
 }
 
@@ -22,5 +49,4 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
 });
 
-// ADD THIS LINE to fix the "missing default export" warning
 export default supabase;
