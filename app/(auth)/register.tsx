@@ -14,6 +14,7 @@ import {
   View,
 } from "react-native";
 import { supabase } from "../../lib/supabase";
+import { validateEmail, validatePassword, validatePhone } from "../../lib/validation";
 
 export default function RegisterScreen() {
   const [email, setEmail] = useState("");
@@ -30,17 +31,32 @@ export default function RegisterScreen() {
       return;
     }
 
-    // CLIENT SIDE VALIDATION
-    if (password.length < 6) {
+    // ENTERPRISE-GRADE VALIDATION
+    // 1. Email format validation
+    if (!validateEmail(email)) {
+      Alert.alert("Invalid Email", "Please enter a valid email address (e.g., juan@example.com).");
+      return;
+    }
+
+    // 2. Password strength validation
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
       Alert.alert(
         "Weak Password",
-        "Password must be at least 6 characters long.",
+        passwordValidation.errors.join("\n• ") + "\n\nPlease choose a stronger password."
       );
       return;
     }
 
+    // 3. Password match validation
     if (password !== confirmPassword) {
       Alert.alert("Mismatch", "Passwords do not match.");
+      return;
+    }
+
+    // 4. Full name validation
+    if (fullName.trim().length < 2) {
+      Alert.alert("Invalid Name", "Please enter your full name (at least 2 characters).");
       return;
     }
 
