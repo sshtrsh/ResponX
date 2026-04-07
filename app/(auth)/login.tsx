@@ -12,7 +12,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { categorizeError } from "../../lib/errorHandler";
 import { supabase } from "../../lib/supabase";
+import { validateLogin } from "../../lib/validation";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -22,26 +24,31 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
 
   async function handleLogin() {
-    if (!email || !password) {
-      Alert.alert("Missing Fields", "Please enter both email and password.");
+    // 1. Validate inputs with Zod
+    const validation = validateLogin({ email, password });
+    if (!validation.success) {
+      const firstError = Object.values(validation.errors)[0];
+      Alert.alert("Validation Error", firstError);
       return;
     }
 
-    // USE TRY/CATCH/FINALLY
+    setLoading(true);
     try {
-      setLoading(true);
       const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+        email: validation.data.email,
+        password: validation.data.password,
       });
 
       if (error) {
-        Alert.alert("Login Failed", error.message);
+        // 2. Categorize Supabase auth errors for user-friendly messages
+        const appError = categorizeError(error);
+        Alert.alert("Login Failed", appError.message);
       } else {
         router.replace("/(tabs)");
       }
-    } catch (error: any) {
-      Alert.alert("Error", error.message);
+    } catch (error: unknown) {
+      const appError = categorizeError(error);
+      Alert.alert(appError.category, appError.message);
     } finally {
       setLoading(false);
     }

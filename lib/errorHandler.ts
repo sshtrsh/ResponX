@@ -1,190 +1,155 @@
-// Enterprise-grade error handling utility
+// lib/errorHandler.ts — Centralized error handling for ResponX
+// Provides error categorization and a tuple-based async wrapper to avoid try/catch in components.
 
-import { ERROR_MESSAGES } from '../constants/appConstants';
+import { ZodError } from "zod";
 
-export type ErrorCategory = 
-  | 'NETWORK'
-  | 'AUTH'
-  | 'VALIDATION'
-  | 'PERMISSION'
-  | 'UPLOAD'
-  | 'LOCATION'
-  | 'UNKNOWN';
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export type ErrorCategory = "NETWORK" | "AUTH" | "VALIDATION" | "SERVER" | "UNKNOWN";
 
 export interface AppError {
-  code: string;
-  message: string;
   category: ErrorCategory;
-  originalError?: Error;
-  metadata?: Record<string, unknown>;
+  message: string;
+  code: string;
 }
 
-/**
- * Creates a standardized application error
- */
-export function createAppError(
-  code: string,
-  message: string,
-  category: ErrorCategory,
-  originalError?: Error,
-  metadata?: Record<string, unknown>
-): AppError {
-  return { code, message, category, originalError, metadata };
-}
+// ---------------------------------------------------------------------------
+// categorizeError
+// ---------------------------------------------------------------------------
 
 /**
- * Categorizes and normalizes errors from various sources
+ * Inspect any thrown value and return a structured AppError
+ * with a user-friendly message, a machine-readable code, and a category.
  */
 export function categorizeError(error: unknown): AppError {
-  if (!error) {
-    return createAppError('UNKNOWN_ERROR', ERROR_MESSAGES.UNKNOWN_ERROR, 'UNKNOWN');
-  }
+  const raw = error instanceof Error ? error.message : String(error ?? "");
 
-  const err = error as Error & { code?: string; status?: number };
-
-  // Handle Supabase errors
-  if (err.message?.includes('JWT') || err.message?.includes('session')) {
-    return createAppError(
-      'SESSION_EXPIRED',
-      ERROR_MESSAGES.SESSION_EXPIRED,
-      'AUTH',
-      err
-    );
-  }
-
-  // Handle network errors
+  // --- NETWORK ----------------------------------------------------------
   if (
-    err.message?.includes('fetch') ||
-    err.message?.includes('network') ||
-    err.message?.includes('offline')
+    raw.includes("Network request failed") ||
+    raw.includes("Failed to fetch") ||
+    raw.includes("ERR_NETWORK") ||
+    raw.includes("net::") ||
+    raw.includes("ECONNREFUSED") ||
+    raw.includes("timeout")
   ) {
-    return createAppError(
-      'NETWORK_ERROR',
-      ERROR_MESSAGES.NETWORK_ERROR,
-      'NETWORK',
-      err
-    );
+    return {
+      category: "NETWORK",
+      message: "Unable to connect. Please check your internet connection and try again.",
+      code: "NETWORK_ERROR",
+    };
   }
 
-  // Handle permission errors
-  if (err.message?.includes('permission') || err.message?.includes('denied')) {
-    return createAppError(
-      'PERMISSION_DENIED',
-      ERROR_MESSAGES.LOCATION_DENIED,
-      'PERMISSION',
-      err
-    );
+  // --- AUTH -------------------------------------------------------------
+  if (
+    raw.includes("Invalid login credentials") ||
+    raw.includes("invalid_credentials")
+  ) {
+    return {
+      category: "AUTH",
+      message: "Incorrect email or password. Please try again.",
+      code: "INVALID_CREDENTIALS",
+    };
   }
 
-  // Handle upload errors
-  if (err.message?.includes('upload') || err.message?.includes('storage')) {
-    return createAppError(
-      'UPLOAD_FAILED',
-      ERROR_MESSAGES.UPLOAD_FAILED,
-      'UPLOAD',
-      err
-    );
+  if (raw.includes("Email not confirmed")) {
+    return {
+      category: "AUTH",
+      message: "Please verify your email address before signing in.",
+      code: "EMAIL_NOT_CONFIRMED",
+    };
   }
 
-  // Handle validation errors
-  if (err.message?.includes('valid') || err.code === 'VALIDATION_ERROR') {
-    return createAppError(
-      'VALIDATION_ERROR',
-      err.message,
-      'VALIDATION',
-      err
-    );
+  if (
+    raw.includes("Expired token") ||
+    raw.includes("JWT expired") ||
+    raw.includes("token is expired")
+  ) {
+    return {
+      category: "AUTH",
+      message: "Your session has expired. Please sign in again.",
+      code: "TOKEN_EXPIRED",
+    };
   }
 
-  // Default unknown error
-  return createAppError(
-    'UNKNOWN_ERROR',
-    err.message || ERROR_MESSAGES.UNKNOWN_ERROR,
-    'UNKNOWN',
-    err
-  );
+  if (
+    raw.includes("User already registered") ||
+    raw.includes("already been registered")
+  ) {
+    return {
+      category: "AUTH",
+      message: "An account with this email already exists.",
+      code: "USER_EXISTS",
+    };
+  }
+
+  // --- VALIDATION -------------------------------------------------------
+  if (error instanceof ZodError) {
+    const firstIssue = error.issues[0];
+    return {
+      category: "VALIDATION",
+      message: firstIssue?.message ?? "Please check your input and try again.",
+      code: "VALIDATION_ERROR",
+    };
+  }
+
+  if (
+    raw.includes("violates check constraint") ||
+    raw.includes("violates unique constraint") ||
+    raw.includes("violates foreign key constraint") ||
+    raw.includes("duplicate key")
+  ) {
+    return {
+      category: "VALIDATION",
+      message: "A validation rule was violated. Please review your input.",
+      code: "CONSTRAINT_VIOLATION",
+    };
+  }
+
+  // --- SERVER -----------------------------------------------------------
+  if (
+    raw.includes("500") ||
+    raw.includes("Internal Server Error") ||
+    raw.includes("502") ||
+    raw.includes("503") ||
+    raw.includes("Service Unavailable")
+  ) {
+    return {
+      category: "SERVER",
+      message: "Our servers are temporarily unavailable. Please try again later.",
+      code: "SERVER_ERROR",
+    };
+  }
+
+  // --- UNKNOWN (fallback) -----------------------------------------------
+  return {
+    category: "UNKNOWN",
+    message: "Something went wrong. Please try again.",
+    code: "UNKNOWN_ERROR",
+  };
 }
 
-/**
- * Logs errors with context for debugging
- */
-export function logError(
-  error: AppError | Error,
-  context: string,
-  metadata?: Record<string, unknown>
-): void {
-  const appError = 'category' in error ? error : categorizeError(error);
-  
-  console.error(`[${context}] ${appError.code}: ${appError.message}`, {
-    category: appError.category,
-    originalError: appError.originalError?.message,
-    metadata: { ...metadata, ...appError.metadata },
-    timestamp: new Date().toISOString(),
-  });
-
-  // In production, send to error tracking service (e.g., Sentry)
-  // if (__DEV__) {
-  //   console.error('Full error details:', error);
-  // }
-}
+// ---------------------------------------------------------------------------
+// handleAsyncOperation
+// ---------------------------------------------------------------------------
 
 /**
- * Safe async wrapper that returns [data, error] tuple
+ * Wraps a Promise and returns a Go-style tuple [data, error].
+ * Eliminates the need for try/catch blocks in component handlers.
+ *
+ * Usage:
+ *   const [data, err] = await handleAsyncOperation(supabase.auth.signInWithPassword({...}));
+ *   if (err) { Alert.alert(err.category, err.message); return; }
  */
-export async function safeAsync<T>(
-  promise: Promise<T>
+export async function handleAsyncOperation<T>(
+  promise: Promise<T>,
 ): Promise<[T | null, AppError | null]> {
   try {
     const data = await promise;
     return [data, null];
   } catch (error) {
-    const appError = categorizeError(error);
-    return [null, appError];
+    return [null, categorizeError(error)];
   }
 }
-
-/**
- * Retry utility with exponential backoff
- */
-export async function retryAsync<T>(
-  fn: () => Promise<T>,
-  options: {
-    maxAttempts?: number;
-    delayMs?: number;
-    shouldRetry?: (error: AppError) => boolean;
-  } = {}
-): Promise<T> {
-  const {
-    maxAttempts = 3,
-    delayMs = 1000,
-    shouldRetry = (error) => error.category === 'NETWORK',
-  } = options;
-
-  let lastError: AppError | null = null;
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      return await fn();
-    } catch (error) {
-      lastError = categorizeError(error);
-      
-      if (!shouldRetry(lastError) || attempt === maxAttempts) {
-        throw lastError;
-      }
-
-      // Exponential backoff: delay * 2^(attempt-1)
-      const backoffDelay = delayMs * Math.pow(2, attempt - 1);
-      await new Promise(resolve => setTimeout(resolve, backoffDelay));
-    }
-  }
-
-  throw lastError;
-}
-
-export default {
-  createAppError,
-  categorizeError,
-  logError,
-  safeAsync,
-  retryAsync,
-};

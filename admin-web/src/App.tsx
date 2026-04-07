@@ -19,6 +19,7 @@ const Stats = lazy(async () => await import("./pages/Stats"));
 const Blotter = lazy(async () => await import("./pages/Blotter"));
 const Broadcast = lazy(async () => await import("./pages/Broadcast"));
 const SystemAdmin = lazy(async () => await import("./pages/SystemAdmin"));
+const AuditLogs = lazy(async () => await import("./pages/AuditLogs"));
 const Account = lazy(async () => await import("./pages/Account"));
 
 // ── Shared page-level loading fallback ────────────────────────────────────────
@@ -73,6 +74,7 @@ function AppRoutes() {
         />
         {/* Nested routes for settings and account */}
         <Route path="/settings" element={session ? <RoleGuard allowedRoles={["super_admin", "police_admin"]}><SystemAdmin /></RoleGuard> : <Navigate to="/login" />} />
+        <Route path="/audit-logs" element={session ? <RoleGuard allowedRoles={["super_admin"]}><AuditLogs /></RoleGuard> : <Navigate to="/login" />} />
         <Route path="/account" element={session ? <RoleGuard allowedRoles={["super_admin", "police_admin", "barangay_admin"]}><Account /></RoleGuard> : <Navigate to="/login" />} />
         <Route
           path="/stats"

@@ -26,8 +26,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import LocationPickerModal from "../../components/LocationPickerModal";
 import ModalPicker from "../../components/ModalPicker";
 import { Colors } from "../../constants/Colors";
+import { appConstants } from "../../constants/appConstants";
 import { useAuth } from "../../contexts/AuthProvider";
 import { supabase } from "../../lib/supabase";
+import { categorizeError } from "../../lib/errorHandler";
+import { validateReport } from "../../lib/validation";
 
 // --- 1. SIMPLIFIED INCIDENT LIST (With Colors) ---
 const INCIDENT_TYPES = [
@@ -122,7 +125,6 @@ const DEFAULT_BARANGAY_COORDS: Record<string, { lat: number; lng: number }> = {
 // Returns empty string if the nearest barangay is more than 25 km away
 // (prevents false snapping when the user is outside the service area).
 const EARTH_RADIUS_KM = 6371;
-const MAX_BARANGAY_DISTANCE_KM = 25;
 
 const findNearestBarangay = (lat: number, lng: number, barangayCoords: Record<string, { lat: number, lng: number }>): string => {
   const list = Object.keys(barangayCoords);
@@ -148,7 +150,7 @@ const findNearestBarangay = (lat: number, lng: number, barangayCoords: Record<st
   }
 
   // Sanity check: don't snap to a barangay if we're clearly outside the service area
-  if (minDistKm > MAX_BARANGAY_DISTANCE_KM) return "";
+  if (minDistKm > appConstants.MAX_BARANGAY_DISTANCE_KM) return "";
 
   return nearest;
 };
@@ -355,7 +357,7 @@ export default function ReportScreen() {
           // Ignored
         });
       }
-    }, 1000);
+    }, appConstants.AUTO_SAVE_DEBOUNCE_MS);
 
     return () => clearTimeout(saveTimeout);
   }, [
@@ -419,7 +421,7 @@ export default function ReportScreen() {
 
       // SOS MODE: Use highest accuracy for emergencies
       const pos = await Location.getCurrentPositionAsync({
-        accuracy: isSOS ? Location.Accuracy.Highest : Location.Accuracy.High,
+        accuracy: (isSOS ? appConstants.GPS_ACCURACY_SOS : appConstants.GPS_ACCURACY_DEFAULT) as Location.LocationAccuracy,
       });
       setLatitude(pos.coords.latitude);
       setLongitude(pos.coords.longitude);
@@ -466,7 +468,7 @@ export default function ReportScreen() {
   const pickImage = async () => {
     // Guard cumulative limit before opening picker — the JSX hides the button but
     // there's a brief window between re-renders where this could be called with 4 images.
-    if (images.length >= 4) return;
+    if (images.length >= appConstants.MAX_IMAGES) return;
 
     Alert.alert(
       "Attach Evidence",
@@ -475,7 +477,7 @@ export default function ReportScreen() {
         {
           text: "Camera",
           onPress: async () => {
-            if (images.length >= 4) return; // Re-check inside async callback
+            if (images.length >= appConstants.MAX_IMAGES) return; // Re-check inside async callback
             const { status } = await ImagePicker.requestCameraPermissionsAsync();
             if (status !== 'granted') {
               return Alert.alert("Permission Required", "Please allow camera access to take photos.");
@@ -486,7 +488,7 @@ export default function ReportScreen() {
               allowsMultipleSelection: false, // Core Camera mode only takes one at a time for safety
             });
             if (!res.canceled) {
-              setImages((prev) => prev.length < 4 ? [...prev, res.assets[0].uri] : prev);
+              setImages((prev) => prev.length < appConstants.MAX_IMAGES ? [...prev, res.assets[0].uri] : prev);
             }
           }
         },
@@ -501,12 +503,12 @@ export default function ReportScreen() {
               mediaTypes: ['images'],
               quality: 0.5,
               allowsMultipleSelection: true,
-              selectionLimit: 4,
+              selectionLimit: appConstants.MAX_IMAGES,
             });
             if (!res.canceled) {
               const newUris = res.assets.map(a => a.uri);
               setImages((prev) => {
-                const remaining = 4 - prev.length;
+                const remaining = appConstants.MAX_IMAGES - prev.length;
                 return [...prev, ...newUris.slice(0, remaining)];
               });
             }
@@ -569,6 +571,21 @@ export default function ReportScreen() {
     if (!crimeType || !location || !barangay || (!isSOS && description.length < 5)) {
       scrollViewRef.current?.scrollTo({ y: 0, animated: true });
       return Alert.alert("Missing Info", "Please fill in all required fields. Description needs at least 5 characters.");
+    }
+
+    // 1b. Zod schema validation (non-SOS only — SOS allows short descriptions)
+    if (!isSOS) {
+      const reportValidation = validateReport({
+        incidentType: crimeType === "Others" ? customIncident : crimeType,
+        description,
+        latitude: latitude ?? 0,
+        longitude: longitude ?? 0,
+      });
+      if (!reportValidation.success) {
+        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+        const errorMessages = Object.values(reportValidation.errors).join("\n");
+        return Alert.alert("Validation Error", errorMessages);
+      }
     }
 
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
@@ -664,8 +681,9 @@ export default function ReportScreen() {
       } else {
         router.replace({ pathname: '/report-success', params: { id: data[0].id } } as any);
       }
-    } catch (e: any) {
-      Alert.alert("Error", e.message);
+    } catch (e: unknown) {
+      const appError = categorizeError(e);
+      Alert.alert("Submission Error", appError.message);
     } finally {
       setIsSubmitting(false);
       setUploadPhase('idle');
@@ -918,13 +936,13 @@ export default function ReportScreen() {
               </View>
             ))}
 
-            {images.length < 4 && (
+            {images.length < appConstants.MAX_IMAGES && (
               <TouchableOpacity style={styles.photoBtn} onPress={pickImage}>
                 <View style={styles.photoPlaceholder}>
                   <Ionicons name="images" size={28} color="#64748B" />
                   <Text style={styles.photoText}>Add Photo</Text>
                   <Text style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>
-                    {images.length}/4
+                    {images.length}/{appConstants.MAX_IMAGES}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -940,10 +958,10 @@ export default function ReportScreen() {
             placeholder="Describe what happened..."
             multiline
             autoFocus={isSOS}
-            maxLength={1000}
+            maxLength={appConstants.MAX_DESCRIPTION_LENGTH}
           />
           <Text style={styles.charCount}>
-            {description.length} / 1000 {description.length > 0 && description.length < 5 && <Text style={{ color: '#EF4444' }}>(Min 5 required)</Text>}
+            {description.length} / {appConstants.MAX_DESCRIPTION_LENGTH} {description.length > 0 && description.length < 5 && <Text style={{ color: '#EF4444' }}>(Min 5 required)</Text>}
           </Text>
 
           {/* ANONYMOUS — hidden in express mode (auto-enabled) */}

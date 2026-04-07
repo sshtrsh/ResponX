@@ -2,6 +2,7 @@ import {
   type LucideIcon,
   BarChart3,
   BookOpen,
+  FileSearch,
   LayoutDashboard,
   Loader2,
   LogOut,
@@ -100,6 +101,16 @@ export function Sidebar() {
             label="System Admin"
             to="/settings"
             active={isActive("/settings")}
+          />
+        )}
+
+        {/* Audit Logs — super_admin only */}
+        {role === "super_admin" && (
+          <SidebarItem
+            icon={FileSearch}
+            label="Audit Logs"
+            to="/audit-logs"
+            active={isActive("/audit-logs")}
           />
         )}
       </nav>

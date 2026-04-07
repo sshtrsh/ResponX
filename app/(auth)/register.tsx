@@ -13,8 +13,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { categorizeError } from "../../lib/errorHandler";
 import { supabase } from "../../lib/supabase";
-import { validateEmail, validatePassword, validatePhone } from "../../lib/validation";
+import { validateRegister } from "../../lib/validation";
 
 export default function RegisterScreen() {
   const [email, setEmail] = useState("");
@@ -26,63 +27,47 @@ export default function RegisterScreen() {
   const router = useRouter();
 
   async function handleRegister() {
-    if (!email || !password || !fullName || !confirmPassword) {
-      Alert.alert("Missing Info", "Please fill in all fields to register.");
-      return;
-    }
-
-    // ENTERPRISE-GRADE VALIDATION
-    // 1. Email format validation
-    if (!validateEmail(email)) {
-      Alert.alert("Invalid Email", "Please enter a valid email address (e.g., juan@example.com).");
-      return;
-    }
-
-    // 2. Password strength validation
-    const passwordValidation = validatePassword(password);
-    if (!passwordValidation.valid) {
-      Alert.alert(
-        "Weak Password",
-        passwordValidation.errors.join("\n• ") + "\n\nPlease choose a stronger password."
-      );
-      return;
-    }
-
-    // 3. Password match validation
-    if (password !== confirmPassword) {
-      Alert.alert("Mismatch", "Passwords do not match.");
-      return;
-    }
-
-    // 4. Full name validation
-    if (fullName.trim().length < 2) {
-      Alert.alert("Invalid Name", "Please enter your full name (at least 2 characters).");
+    // 1. Validate all fields with Zod schema
+    const validation = validateRegister({ fullName, email, password, confirmPassword });
+    if (!validation.success) {
+      // Show all field errors to the user
+      const errorMessages = Object.entries(validation.errors)
+        .map(([field, msg]) => `• ${msg}`)
+        .join("\n");
+      Alert.alert("Validation Error", errorMessages);
       return;
     }
 
     setLoading(true);
 
-    // Removed unused 'data' destructuring
-    const { error } = await supabase.auth.signUp({
-      email: email,
-      password: password,
-      options: {
-        data: {
-          full_name: fullName,
+    try {
+      const { error } = await supabase.auth.signUp({
+        email: validation.data.email,
+        password: validation.data.password,
+        options: {
+          data: {
+            full_name: validation.data.fullName,
+          },
         },
-      },
-    });
+      });
 
-    if (error) {
-      Alert.alert("Registration Error", error.message);
-    } else {
-      Alert.alert(
-        "Success!",
-        "Please check your email to verify your account before logging in.",
-      );
-      router.replace("/(auth)/login");
+      if (error) {
+        // 2. Categorize Supabase errors for user-friendly messages
+        const appError = categorizeError(error);
+        Alert.alert("Registration Error", appError.message);
+      } else {
+        Alert.alert(
+          "Success!",
+          "Please check your email to verify your account before logging in.",
+        );
+        router.replace("/(auth)/login");
+      }
+    } catch (error: unknown) {
+      const appError = categorizeError(error);
+      Alert.alert(appError.category, appError.message);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   return (
@@ -121,7 +106,7 @@ export default function RegisterScreen() {
           <View style={styles.passwordContainer}>
             <TextInput
               style={styles.passwordInput}
-              placeholder="At least 6 characters"
+              placeholder="At least 8 characters"
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
